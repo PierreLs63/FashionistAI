@@ -1,0 +1,146 @@
+# Fichiers et dossiers générés automatiquement
+*.log
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Backend Python
+backend/__pycache__/
+backend/*.py[cod]
+backend/*$py.class
+backend/*.so
+backend/.Python
+backend/build/
+backend/develop-eggs/
+backend/dist/
+backend/downloads/
+backend/eggs/
+backend/.eggs/
+backend/lib/
+backend/lib64/
+backend/parts/
+backend/sdist/
+backend/var/
+backend/wheels/
+backend/pip-wheel-metadata/
+backend/share/python-wheels/
+backend/*.egg-info/
+backend/.installed.cfg
+backend/*.egg
+backend/MANIFEST
+
+# Environnement virtuel Python
+backend/venv/
+backend/env/
+backend/ENV/
+backend/env.bak/
+backend/venv.bak/
+backend/.venv/
+
+# Fichiers uploadés temporairement
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Variables d'environnement et secrets
+backend/.env
+backend/.env.local
+backend/.env.development.local
+backend/.env.test.local
+backend/.env.production.local
+
+# Base de données locale
+backend/*.db
+backend/*.sqlite
+backend/*.sqlite3
+
+# Fichiers de configuration IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Frontend React/Node.js
+frontend/node_modules/
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/lerna-debug.log*
+
+# Production build
+frontend/build/
+frontend/dist/
+
+# Runtime data
+frontend/pids
+frontend/*.pid
+frontend/*.seed
+frontend/*.pid.lock
+
+# Coverage directory used by tools like istanbul
+frontend/coverage/
+frontend/nyc_output/
+
+# ESLint cache
+frontend/.eslintcache
+
+# Optional npm cache directory
+frontend/.npm
+
+# Optional REPL history
+frontend/.node_repl_history
+
+# Output of 'npm pack'
+frontend/*.tgz
+
+# Yarn Integrity file
+frontend/.yarn-integrity
+
+# dotenv environment variables file
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# Storybook build outputs
+frontend/.out
+frontend/.storybook-out
+
+# Next.js build output (si utilisé plus tard)
+frontend/.next
+
+# Nuxt.js build / generate output (si utilisé plus tard)
+frontend/.nuxt
+frontend/dist
+
+# Modèles d'IA et fichiers volumineux
+*.pt
+*.pth
+*.onnx
+*.h5
+*.pkl
+*.model
+
+# Logs généraux
+logs
+*.log
+
+# Fichiers temporaires du système
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Fichiers de sauvegarde
+*.bak
+*.backup
+*.orig
+
+# Fichiers de test
+test-uploads/
+temp-files/
