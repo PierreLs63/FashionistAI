@@ -56,7 +56,7 @@ code {
   justify-content: center;
   align-items: flex-start;
   padding: 0 2rem 2rem 2rem;
-  max-width: 500px;
+  max-width: 1400px; /* Augmenté pour permettre 2 colonnes */
   margin: 0 auto;
   width: 100%;
 }
@@ -67,20 +67,19 @@ code {
   max-width: 1400px;
   width: 100%;
   justify-content: center;
-  flex-wrap: wrap;
-  flex-direction: row-reverse; /* QR à droite */
+  align-items: flex-start; /* Alignement en haut */
+  flex-wrap: nowrap; /* Pas de retour à la ligne sur grand écran */
 }
 
 .qr-section {
-  flex: 0 0 400px;
-  order: 2; /* Force à droite */
+  flex: 0 0 450px; /* Largeur fixe pour le QR */
+  min-width: 400px;
 }
 
 .capture-section {
   flex: 1;
-  min-width: 400px;
-  max-width: 500px;
-  order: 1; /* Force à gauche */
+  min-width: 450px;
+  max-width: 600px;
 }
 
 @media (max-width: 1024px) {
@@ -90,5 +89,16 @@ code {
   
   .App-header h1 {
     font-size: 2rem;
+  }
+
+  .pc-layout {
+    flex-wrap: wrap; /* Retour à la ligne sur écrans moyens */
+  }
+
+  .qr-section,
+  .capture-section {
+    flex: 1 1 100%;
+    max-width: 100%;
+    min-width: 300px;
   }
 }

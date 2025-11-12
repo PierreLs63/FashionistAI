@@ -42,7 +42,7 @@ const MainApp: React.FC = () => {
   return (
     <div className="App">
       <header className="App-header">
-        <h1>🎭 FashionistAI - Analyse de Mesures Corporelles</h1>
+        <h1>FashionistAI - Analyse de Mesures Corporelles</h1>
         <p>Capturez votre photo et obtenez vos mesures estimées</p>
         {!isMobile && <p className="device-indicator">💻 Mode PC - Utilisation à distance disponible</p>}
         {isMobile && <p className="device-indicator">📱 Mode Mobile</p>}
