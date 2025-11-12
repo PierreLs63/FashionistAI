@@ -85,11 +85,24 @@ echo ""
 
 echo -e "${BLUE}⚙️  Démarrage du backend TypeScript...${NC}"
 
-# Source shell profile to get npm in PATH
-if [ -f "$HOME/.zshrc" ]; then
-    source "$HOME/.zshrc" 2>/dev/null
-elif [ -f "$HOME/.bashrc" ]; then
-    source "$HOME/.bashrc" 2>/dev/null
+# Try to find node in common locations
+NODE_BIN=""
+if [ -f "/usr/local/bin/node" ]; then
+    NODE_BIN="/usr/local/bin/node"
+elif [ -f "$HOME/.nvm/current/bin/node" ]; then
+    NODE_BIN="$HOME/.nvm/current/bin/node"
+elif [ -f "/opt/homebrew/bin/node" ]; then
+    NODE_BIN="/opt/homebrew/bin/node"
+else
+    # Try to use node from PATH if available
+    NODE_BIN=$(command -v node 2>/dev/null || echo "")
+fi
+
+if [ -z "$NODE_BIN" ]; then
+    echo -e "${RED}   ❌ Node.js introuvable${NC}"
+    echo "   Installez Node.js ou utilisez start-services.sh"
+    kill $PYTHON_PID 2>/dev/null
+    exit 1
 fi
 
 # Check if we should use dev mode or production
@@ -97,12 +110,12 @@ if [ "$1" == "prod" ]; then
     # Production mode
     if [ ! -d "dist" ]; then
         echo "   Compilation TypeScript..."
-        npm run build
+        $NODE_BIN node_modules/.bin/tsc
     fi
-    nohup node dist/server.js > logs/backend.log 2>&1 &
+    nohup $NODE_BIN dist/server.js > logs/backend.log 2>&1 &
 else
     # Development mode with watch
-    nohup npm run dev > logs/backend.log 2>&1 &
+    nohup $NODE_BIN node_modules/.bin/tsx watch src/server.ts > logs/backend.log 2>&1 &
 fi
 
 BACKEND_PID=$!
@@ -127,14 +140,26 @@ echo ""
 echo -e "${BLUE}⚛️  Démarrage du frontend React...${NC}"
 cd frontend
 
-# Source shell profile to get npm in PATH (if not already done)
-if [ -f "$HOME/.zshrc" ]; then
-    source "$HOME/.zshrc" 2>/dev/null
-elif [ -f "$HOME/.bashrc" ]; then
-    source "$HOME/.bashrc" 2>/dev/null
+# Try to find node in common locations (same as backend)
+NODE_BIN=""
+if [ -f "/usr/local/bin/node" ]; then
+    NODE_BIN="/usr/local/bin/node"
+elif [ -f "$HOME/.nvm/current/bin/node" ]; then
+    NODE_BIN="$HOME/.nvm/current/bin/node"
+elif [ -f "/opt/homebrew/bin/node" ]; then
+    NODE_BIN="/opt/homebrew/bin/node"
+else
+    NODE_BIN=$(command -v node 2>/dev/null || echo "")
 fi
 
-nohup npm start > ../logs/frontend.log 2>&1 &
+if [ -z "$NODE_BIN" ]; then
+    echo -e "${RED}   ❌ Node.js introuvable pour le frontend${NC}"
+    kill $PYTHON_PID $BACKEND_PID 2>/dev/null
+    exit 1
+fi
+
+# Start React with npm start via node
+nohup $NODE_BIN node_modules/.bin/react-scripts start > ../logs/frontend.log 2>&1 &
 FRONTEND_PID=$!
 
 echo -e "${GREEN}   ✅ Lancé (PID: $FRONTEND_PID) sur http://localhost:3000${NC}"

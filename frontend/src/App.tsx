@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import BodyMeasurementApp from './components/PhotoCapture';
 import QRCodeDisplay from './components/QRCodeDisplay';
+import MobileCapture from './components/MobileCapture';
 import './index.css';
 
-const App: React.FC = () => {
+// Composant principal pour la page d'accueil
+const MainApp: React.FC = () => {
   const [isMobile, setIsMobile] = useState<boolean>(false);
   const [capturedImageFromMobile, setCapturedImageFromMobile] = useState<string>('');
   const [triggerCapture, setTriggerCapture] = useState<number>(0);
@@ -55,7 +57,7 @@ const App: React.FC = () => {
                 onTriggerCapture={handleTriggerCapture}
               />
             </div>
-                        <div className="capture-section">
+            <div className="capture-section">
               <BodyMeasurementApp 
                 {...{ initialImage: capturedImageFromMobile, triggerCapture } as any}
               />
@@ -67,6 +69,17 @@ const App: React.FC = () => {
       </div>
     </div>
   );
+};
+
+// Router simple pour gérer les différentes pages
+const App: React.FC = () => {
+  const isMobileCapturePage = window.location.pathname === '/mobile-capture';
+
+  if (isMobileCapturePage) {
+    return <MobileCapture />;
+  }
+
+  return <MainApp />;
 };
 
 export default App;

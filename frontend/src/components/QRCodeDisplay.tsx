@@ -58,21 +58,17 @@ const QRCodeDisplay: React.FC<QRCodeDisplayProps> = ({ onImageCaptured, onTrigge
       setMobileConnected(false);
     };
 
-    const handleCapturePhoto = (data?: { imageDataUrl?: string }) => {
-      console.log('📸 Demande de capture photo reçue du mobile', data);
-      // Le serveur envoie juste un signal pour déclencher la capture
-      // Pas de données d'image - c'est juste un trigger
-      // La capture réelle se fait dans PhotoCapture.tsx
-      if (data && data.imageDataUrl) {
-        // Si des données sont envoyées, les utiliser
-        onImageCaptured(data.imageDataUrl);
-      } else {
-        // Sinon, déclencher la capture locale sur le PC
-        console.log('📷 Signal de capture reçu - déclenchement de la webcam du PC');
-        if (onTriggerCapture) {
-          onTriggerCapture();
-        }
+    const handleCaptureRequested = () => {
+      console.log('📸 Signal de capture reçu depuis le mobile!');
+      // Déclencher la capture sur le PC
+      if (onTriggerCapture) {
+        onTriggerCapture();
       }
+    };
+
+    const handlePhotoReceived = (data: { imageData: string }) => {
+      console.log('📷 Photo reçue depuis le mobile');
+      onImageCaptured(data.imageData);
     };
 
     // Événements Socket.io
@@ -80,7 +76,8 @@ const QRCodeDisplay: React.FC<QRCodeDisplayProps> = ({ onImageCaptured, onTrigge
     socket.on('disconnect', handleDisconnect);
     socket.on('mobile-connected', handleMobileConnected);
     socket.on('mobile-disconnected', handleMobileDisconnected);
-    socket.on('capture-photo', handleCapturePhoto);
+    socket.on('capture-requested', handleCaptureRequested); // Le mobile demande au PC de capturer
+    socket.on('photo-received', handlePhotoReceived); // Pour compatibilité si le mobile envoie une photo
 
     // Si déjà connecté, appeler handleConnect immédiatement
     if (socket.connected) {
@@ -94,7 +91,8 @@ const QRCodeDisplay: React.FC<QRCodeDisplayProps> = ({ onImageCaptured, onTrigge
       socket.off('disconnect', handleDisconnect);
       socket.off('mobile-connected', handleMobileConnected);
       socket.off('mobile-disconnected', handleMobileDisconnected);
-      socket.off('capture-photo', handleCapturePhoto);
+      socket.off('capture-requested', handleCaptureRequested);
+      socket.off('photo-received', handlePhotoReceived);
       // NE PAS faire socket.disconnect() ici !
     };
   }, [socketInstance, onImageCaptured, onTriggerCapture]);

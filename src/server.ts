@@ -146,7 +146,7 @@ app.post('/api/analyze-pose', upload.single('image'), async (req: Request, res: 
 
     console.log(`🔍 Analyzing pose for height: ${height}cm`);
 
-    // Send to Python microservice
+    // Send to Python microservice avec axios (meilleur support pour FormData avec fichiers)
     const FormData = (await import('form-data')).default;
     const formData = new FormData();
     formData.append('image', fs.createReadStream(req.file.path), req.file.filename);
@@ -157,8 +157,7 @@ app.post('/api/analyze-pose', upload.single('image'), async (req: Request, res: 
       formData,
       {
         headers: formData.getHeaders(),
-        // Set a reasonable timeout to avoid hanging when Python service is down
-        timeout: 5000 // 5 seconds
+        timeout: 10000 // 10 secondes pour l'analyse YOLO
       }
     );
 
@@ -168,8 +167,6 @@ app.post('/api/analyze-pose', upload.single('image'), async (req: Request, res: 
     console.log(`✅ Pose analyzed successfully`);
     res.json(response.data);
   } catch (error: any) {
-    // Handle axios timeout / connection refused distinctly
-    const isAxiosError = error.isAxiosError;
     const errMsg = error.message || 'Error analyzing image';
     console.error('❌ Error analyzing pose:', errMsg);
 
@@ -177,14 +174,15 @@ app.post('/api/analyze-pose', upload.single('image'), async (req: Request, res: 
       fs.unlinkSync(req.file.path);
     }
 
-    if (isAxiosError && (error.code === 'ECONNABORTED' || errMsg.includes('timeout'))) {
+    // Handle axios errors
+    if (error.code === 'ECONNABORTED' || errMsg.includes('timeout')) {
       return res.status(504).json({
         success: false,
         detail: 'Le microservice Python ne répond pas (timeout).'
       });
     }
 
-    if (isAxiosError && error.code === 'ECONNREFUSED') {
+    if (error.code === 'ECONNREFUSED') {
       return res.status(502).json({
         success: false,
         detail: 'Connexion refusée vers le microservice Python.'
@@ -198,7 +196,7 @@ app.post('/api/analyze-pose', upload.single('image'), async (req: Request, res: 
   }
 });
 
-// Mobile capture page
+// Mobile capture page - redirection vers le frontend React
 app.get('/mobile-capture', (req: Request, res: Response) => {
   const { session } = req.query;
 
@@ -206,148 +204,9 @@ app.get('/mobile-capture', (req: Request, res: Response) => {
     return res.status(404).send('<h1>Session invalide ou expirée</h1>');
   }
 
-  res.send(`
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>FashionistAI - Capture Mobile</title>
-    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
-        }
-        .container {
-            width: 100%;
-            max-width: 500px;
-            background: white;
-            border-radius: 20px;
-            padding: 30px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        }
-        h1 {
-            color: #667eea;
-            margin-bottom: 20px;
-            text-align: center;
-            font-size: 24px;
-        }
-        #videoContainer {
-            position: relative;
-            width: 100%;
-            border-radius: 15px;
-            overflow: hidden;
-            background: #000;
-            margin-bottom: 20px;
-        }
-        video {
-            width: 100%;
-            display: block;
-        }
-        button {
-            width: 100%;
-            padding: 15px;
-            font-size: 18px;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 0.3s;
-            font-weight: bold;
-        }
-        #captureBtn {
-            background: #667eea;
-            color: white;
-            margin-bottom: 10px;
-        }
-        #captureBtn:hover { background: #5568d3; }
-        #captureBtn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-        .status {
-            text-align: center;
-            padding: 10px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            font-weight: 500;
-        }
-        .status.connected { background: #d4edda; color: #155724; }
-        .status.waiting { background: #fff3cd; color: #856404; }
-        .status.error { background: #f8d7da; color: #721c24; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>📸 Capture Photo</h1>
-        <div id="status" class="status waiting">Connexion...</div>
-        <div id="videoContainer">
-            <video id="video" autoplay playsinline></video>
-        </div>
-        <button id="captureBtn" disabled>Prendre la photo</button>
-    </div>
-
-    <script>
-        const sessionId = '${session}';
-        const socket = io('http://${config.networkIP}:${config.port}');
-        const video = document.getElementById('video');
-        const captureBtn = document.getElementById('captureBtn');
-        const statusDiv = document.getElementById('status');
-
-        // Connect mobile to session
-        socket.emit('mobile-join', { sessionId });
-
-        socket.on('session-ready', () => {
-            statusDiv.textContent = '✅ Connecté au PC';
-            statusDiv.className = 'status connected';
-        });
-
-        // Start camera
-        async function startCamera() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment', width: 1920, height: 1080 }
-                });
-                video.srcObject = stream;
-                captureBtn.disabled = false;
-            } catch (err) {
-                statusDiv.textContent = '❌ Erreur caméra: ' + err.message;
-                statusDiv.className = 'status error';
-            }
-        }
-
-        startCamera();
-
-        captureBtn.addEventListener('click', () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0);
-            
-            canvas.toBlob((blob) => {
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    socket.emit('photo-captured', {
-                        sessionId,
-                        imageData: reader.result
-                    });
-                    statusDiv.textContent = '📤 Photo envoyée !';
-                    statusDiv.className = 'status connected';
-                };
-                reader.readAsDataURL(blob);
-            }, 'image/jpeg', 0.9);
-        });
-    </script>
-</body>
-</html>
-  `);
+  // Rediriger vers le frontend React
+  const frontendUrl = `http://${config.networkIP}:3000/mobile-capture?session=${session}`;
+  res.redirect(frontendUrl);
 });
 
 // ====================
@@ -414,18 +273,19 @@ io.on('connection', (socket) => {
     console.log(`✅ Photo sent to PC`);
   });
 
-  // Trigger capture from PC
+  // Trigger capture from mobile (mobile demande au PC de capturer)
   socket.on('trigger-capture', ({ sessionId }: { sessionId: string }) => {
-    console.log(`🎯 Trigger capture for session: ${sessionId}`);
+    console.log(`🎯 Mobile demande capture pour session: ${sessionId}`);
     
     const session = sessions.get(sessionId);
-    if (!session || !session.mobileSocketId) {
-      socket.emit('error', { message: 'Mobile not connected' });
+    if (!session) {
+      socket.emit('error', { message: 'Session not found' });
       return;
     }
 
-    io.to(session.mobileSocketId).emit('capture-requested');
-    console.log(`✅ Capture triggered on mobile`);
+    // Envoyer le signal au PC pour qu'il capture depuis sa webcam
+    io.to(session.pcSocketId).emit('capture-requested');
+    console.log(`✅ Signal de capture envoyé au PC`);
   });
 
   // Disconnect
