@@ -31,10 +31,10 @@
     },
     "female": {
       "tops": [
-        { "label": "XS", "bust": [78, 82], "waist": [60, 64] },
-        { "label": "S", "bust": [82, 86], "waist": [64, 68] },
-        { "label": "M", "bust": [86, 92], "waist": [68, 74] },
-        { "label": "L", "bust": [92, 98], "waist": [74, 80] }
+        { "label": "XS", "chest": [78, 82], "waist": [60, 64] },
+        { "label": "S", "chest": [82, 86], "waist": [64, 68] },
+        { "label": "M", "chest": [86, 92], "waist": [68, 74] },
+        { "label": "L", "chest": [92, 98], "waist": [74, 80] }
       ],
       "jupes": [
         { "label": "XS", "waist": [60, 64], "hips": [86, 90] },

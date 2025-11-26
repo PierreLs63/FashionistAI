@@ -17,10 +17,10 @@
     },
     "female": {
       "tops": [
-        { "label": "XS", "bust": [76, 82] },
-        { "label": "S", "bust": [82, 88] },
-        { "label": "M", "bust": [88, 94] },
-        { "label": "L", "bust": [94, 100] }
+        { "label": "XS", "chest": [76, 82] },
+        { "label": "S", "chest": [82, 88] },
+        { "label": "M", "chest": [88, 94] },
+        { "label": "L", "chest": [94, 100] }
       ],
       "pantalons": [
         { "label": "32", "waist": [58, 62], "hips": [82, 86] },
