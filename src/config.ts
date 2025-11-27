@@ -40,20 +40,24 @@ export const config = {
   
   // CORS
   cors: {
-    origin: '*',
-    credentials: false,
+    origin: true, // Accepte l'origine de la requête
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['*']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range']
   },
   
   // WebSocket
   socketIO: {
     maxHttpBufferSize: 10e6, // 10MB pour les images
     cors: {
-      origin: '*',
-      methods: ['GET', 'POST'],
-      credentials: false
-    }
+      origin: true, // Accepte l'origine de la requête
+      methods: ['GET', 'POST', 'PUT', 'DELETE'],
+      credentials: true,
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
+    },
+    allowEIO3: true, // Support pour les anciennes versions
+    transports: ['websocket', 'polling']
   },
   
   // Upload

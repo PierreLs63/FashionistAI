@@ -102,7 +102,7 @@
     gap: 10px;
 }
 
-.submit-btn, .retake-btn {
+.submit-btn, .retake-btn, .next-btn {
     padding: 12px 20px;
     border: none;
     border-radius: 50px;
@@ -126,6 +126,103 @@
     color: white;
 }
 .retake-btn:hover { background-color: #5a6268; }
+
+.next-btn {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    color: white;
+}
+.next-btn:hover { 
+    background: linear-gradient(135deg, #0e8277 0%, #2dd968 100%);
+}
+
+/* Overlays pour sélection de marque et recommandation */
+.brand-selection-overlay,
+.size-recommendation-overlay {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.95);
+    padding: 20px;
+    border-radius: 15px;
+    width: 90%;
+    max-width: 400px;
+    max-height: 70vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    z-index: 100;
+}
+
+.brand-selection-overlay h3,
+.size-recommendation-overlay h3 {
+    margin: 0 0 15px 0;
+    color: #333;
+    font-size: 18px;
+    text-align: center;
+}
+
+.size-recommendation-section {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 2px solid #e0e0e0;
+}
+
+.size-recommendation-section h3 {
+    font-size: 16px;
+    color: #007bff;
+    margin-bottom: 15px;
+}
+
+.brand-dropdown {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 2px solid #007bff;
+    border-radius: 8px;
+    font-size: 16px;
+    background-color: white;
+}
+
+.brand-dropdown:focus {
+    outline: none;
+    border-color: #0056b3;
+}
+
+.brand-name {
+    text-align: center;
+    font-size: 16px;
+    color: #333;
+    margin: 10px 0;
+    font-weight: 600;
+}
+
+.size-results {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin: 15px 0;
+}
+
+.size-card {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    color: white;
+    padding: 15px 20px;
+    border-radius: 10px;
+    text-align: center;
+    min-width: 100px;
+}
+
+.size-card span {
+    display: block;
+    font-size: 14px;
+    margin-bottom: 5px;
+}
+
+.size-card strong {
+    display: block;
+    font-size: 28px;
+    font-weight: bold;
+}
 
 
 .error-message {
