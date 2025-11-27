@@ -142,6 +142,24 @@ const BodyMeasurementApp: React.FC<BodyMeasurementAppProps> = ({ initialImage, t
     const [imgSrc, setImgSrc] = useState<string | null>(null);
     const [step, setStep] = useState<Step>('capture');
     const [isCameraLoading, setCameraLoading] = useState<boolean>(true);
+    const [showBrandSelection, setShowBrandSelection] = useState<boolean>(false);
+    const [brands, setBrands] = useState<string[]>([]);
+    const [selectedBrand, setSelectedBrand] = useState<string>('');
+    const [sizeRecommendation, setSizeRecommendation] = useState<any>(null);
+
+    // Charger la liste des marques au montage
+    React.useEffect(() => {
+        const fetchBrands = async () => {
+            try {
+                const response = await fetch(`${API_CONFIG.BACKEND_URL}/brands`);
+                const data = await response.json();
+                setBrands(data.brands || []);
+            } catch (error) {
+                console.error('Erreur lors du chargement des marques:', error);
+            }
+        };
+        fetchBrands();
+    }, []);
 
     // Mettre à jour l'image si elle est fournie depuis le mobile
     React.useEffect(() => {
@@ -169,11 +187,6 @@ const BodyMeasurementApp: React.FC<BodyMeasurementAppProps> = ({ initialImage, t
                 setError("Impossible de capturer l'image. Assurez-vous d'avoir autorisé l'accès à la caméra.");
             }
         }
-    };
-
-    const handleMeasurementChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-        const { name, value } = e.target;
-        setMeasurements(prev => prev ? { ...prev, [name]: value } : null);
     };
 
     const analyzeImage = async (): Promise<void> => {
@@ -219,6 +232,59 @@ const BodyMeasurementApp: React.FC<BodyMeasurementAppProps> = ({ initialImage, t
         setImgSrc(null);
         setHeight('');
         setStep('capture');
+        setShowBrandSelection(false);
+        setSelectedBrand('');
+        setSizeRecommendation(null);
+    };
+
+    const handleNextClick = (): void => {
+        setShowBrandSelection(true);
+    };
+
+    const handleGetSizeRecommendation = async (brandName?: string): Promise<void> => {
+        const brand = brandName || selectedBrand;
+        
+        if (!brand || !measurements) {
+            console.log('❌ Pas de marque ou de mesures');
+            return;
+        }
+
+        setIsLoading(true);
+        setError('');
+        
+        try {
+            const requestBody = {
+                measurements: {
+                    estimated_chest_circumference: parseFloat(measurements.estimated_chest_circumference),
+                    estimated_waist_circumference: parseFloat(measurements.estimated_waist_circumference),
+                },
+                brand_name: brand,
+                category: 'tops',
+            };
+
+            console.log('📤 Envoi de la requête:', requestBody);
+
+            const response = await fetch(`${API_CONFIG.BACKEND_URL}/recommend-size`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestBody),
+            });
+
+            if (!response.ok) {
+                throw new Error(`Erreur HTTP: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('📥 Réponse reçue:', data);
+            setSizeRecommendation(data);
+        } catch (error) {
+            console.error('❌ Erreur lors de la recommandation de taille:', error);
+            setError('Erreur lors de la recommandation de taille');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleUserMediaError = (err: string | DOMException): void => {
@@ -263,7 +329,6 @@ const BodyMeasurementApp: React.FC<BodyMeasurementAppProps> = ({ initialImage, t
                         <input 
                             name="shoulder_width" 
                             value={`${measurements.shoulder_width} cm`}
-                            onChange={handleMeasurementChange}
                             readOnly
                         />
                     </div>
@@ -272,7 +337,6 @@ const BodyMeasurementApp: React.FC<BodyMeasurementAppProps> = ({ initialImage, t
                         <input 
                             name="estimated_chest_circumference" 
                             value={`${measurements.estimated_chest_circumference} cm`}
-                            onChange={handleMeasurementChange}
                             readOnly
                         />
                     </div>
@@ -281,7 +345,6 @@ const BodyMeasurementApp: React.FC<BodyMeasurementAppProps> = ({ initialImage, t
                         <input 
                             name="estimated_waist_circumference" 
                             value={`${measurements.estimated_waist_circumference} cm`}
-                            onChange={handleMeasurementChange}
                             readOnly
                         />
                     </div>
@@ -290,7 +353,6 @@ const BodyMeasurementApp: React.FC<BodyMeasurementAppProps> = ({ initialImage, t
                         <input 
                             name="arm_length" 
                             value={`${measurements.arm_length} cm`}
-                            onChange={handleMeasurementChange}
                             readOnly
                         />
                     </div>
@@ -299,7 +361,6 @@ const BodyMeasurementApp: React.FC<BodyMeasurementAppProps> = ({ initialImage, t
                         <input 
                             name="leg_length" 
                             value={`${measurements.leg_length} cm`}
-                            onChange={handleMeasurementChange}
                             readOnly
                         />
                     </div>
@@ -327,7 +388,75 @@ const BodyMeasurementApp: React.FC<BodyMeasurementAppProps> = ({ initialImage, t
                         </div>
                     </>
                 )}
-                {step === 'results' && <button onClick={reset} className="submit-btn">Recommencer</button>}
+                {step === 'results' && (
+                    <>
+                        {showBrandSelection ? (
+                            <div className="brand-selection-overlay">
+                                <h3>Choisir une Marque</h3>
+                                <select 
+                                    value={selectedBrand} 
+                                    onChange={(e) => {
+                                        const brand = e.target.value;
+                                        setSelectedBrand(brand);
+                                        // Déclencher automatiquement la recommandation lors du changement
+                                        if (brand) {
+                                            handleGetSizeRecommendation(brand);
+                                        } else {
+                                            setSizeRecommendation(null);
+                                        }
+                                    }}
+                                    className="brand-dropdown"
+                                >
+                                    <option value="">-- Sélectionner --</option>
+                                    {brands.map((brand) => (
+                                        <option key={brand} value={brand}>{brand}</option>
+                                    ))}
+                                </select>
+
+                                {isLoading && (
+                                    <div style={{ textAlign: 'center', padding: '15px', color: '#007bff' }}>
+                                        <strong>Chargement de la recommandation...</strong>
+                                    </div>
+                                )}
+
+                                {sizeRecommendation && !isLoading && (
+                                    <div className="size-recommendation-section">
+                                        <h3 style={{ marginTop: '20px', fontSize: '16px' }}>Recommandation</h3>
+                                        <div className="size-results">
+                                            {sizeRecommendation.recommendations.male_size && (
+                                                <div className="size-card">
+                                                    <span>Homme:</span>
+                                                    <strong>{sizeRecommendation.recommendations.male_size}</strong>
+                                                </div>
+                                            )}
+                                            {sizeRecommendation.recommendations.female_size && (
+                                                <div className="size-card">
+                                                    <span>Femme:</span>
+                                                    <strong>{sizeRecommendation.recommendations.female_size}</strong>
+                                                </div>
+                                            )}
+                                            {!sizeRecommendation.recommendations.male_size && !sizeRecommendation.recommendations.female_size && (
+                                                <p style={{ textAlign: 'center', color: '#666', margin: '10px 0' }}>
+                                                    Aucune taille disponible pour ces mesures
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="button-group" style={{ marginTop: '15px' }}>
+                                    <button onClick={() => { setShowBrandSelection(false); setSizeRecommendation(null); setSelectedBrand(''); }} className="retake-btn">Retour</button>
+                                    <button onClick={reset} className="submit-btn">Recommencer</button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="button-group">
+                                <button onClick={reset} className="submit-btn">Recommencer</button>
+                                <button onClick={handleNextClick} className="next-btn">Suivant</button>
+                            </div>
+                        )}
+                    </>
+                )}
                 {error && <p className="error-message">{error}</p>}
             </div>
         </div>

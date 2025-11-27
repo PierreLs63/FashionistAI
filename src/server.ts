@@ -19,19 +19,9 @@ const app = express();
 const httpServer = createServer(app);
 
 // Initialize Socket.IO
-const io = new SocketIOServer(httpServer, config.socketIO);
+const io = new SocketIOServer(httpServer, config.socketIO as any);
 
 // Middleware
-app.use((req: Request, res: Response, next: NextFunction) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  next();
-});
-
 app.use(cors(config.cors));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -207,6 +197,35 @@ app.get('/mobile-capture', (req: Request, res: Response) => {
   // Rediriger vers le frontend React
   const frontendUrl = `http://${config.networkIP}:3000/mobile-capture?session=${session}`;
   res.redirect(frontendUrl);
+});
+
+// Route pour obtenir la liste des marques depuis le microservice Python
+app.get('/brands', async (req: Request, res: Response) => {
+  try {
+    const response = await axios.get(`${config.pythonService.url}/brands`, {
+      timeout: 5000
+    });
+    res.json(response.data);
+  } catch (error: any) {
+    console.error('❌ Erreur lors de la récupération des marques:', error.message);
+    res.status(500).json({ error: 'Erreur lors de la récupération des marques' });
+  }
+});
+
+// Route pour obtenir une recommandation de taille depuis le microservice Python
+app.post('/recommend-size', async (req: Request, res: Response) => {
+  try {
+    const response = await axios.post(`${config.pythonService.url}/recommend-size`, req.body, {
+      timeout: 5000,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    res.json(response.data);
+  } catch (error: any) {
+    console.error('❌ Erreur lors de la recommandation de taille:', error.message);
+    res.status(500).json({ error: 'Erreur lors de la recommandation de taille' });
+  }
 });
 
 // ====================

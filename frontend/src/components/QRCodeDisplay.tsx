@@ -13,9 +13,11 @@ const QRCodeDisplay: React.FC<QRCodeDisplayProps> = ({ onImageCaptured, onTrigge
   const [socketInstance] = useState<Socket>(() => {
     console.log('🔌 Création du socket vers:', API_CONFIG.BACKEND_URL);
     return io(API_CONFIG.BACKEND_URL, {
+      withCredentials: true,
       reconnection: true,
       reconnectionDelay: 1000,
-      reconnectionAttempts: 5
+      reconnectionAttempts: 5,
+      transports: ['websocket', 'polling']
     });
   });
   const [isConnected, setIsConnected] = useState<boolean>(false);

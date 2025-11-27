@@ -1,14 +1,18 @@
 import os
 import uuid
 import numpy as np
+import json
 import cv2
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from ultralytics import YOLO
+from typing import Dict, Any, List, Optional
 
 # --- Configuration ---
 app = FastAPI(title="FashionistAI Python Microservice")
 UPLOAD_DIR = "uploads"
+SIZE_CHARTS_DIR = "size_charts"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Charger le modèle YOLOv8-Pose pré-entraîné
@@ -141,6 +145,176 @@ async def analyze_pose(image: UploadFile = File(...), height: str = Form(...)):
 async def health_check():
     return {"status": "ok", "service": "FashionistAI Python Microservice"}
 
+@app.get("/brands")
+async def get_brands():
+    """
+    Retourne la liste des marques supportées (noms des fichiers dans size_charts sans l'extension).
+    """
+    try:
+        if not os.path.exists(SIZE_CHARTS_DIR):
+            raise HTTPException(status_code=404, detail="Répertoire size_charts introuvable")
+        
+        brands = []
+        for filename in os.listdir(SIZE_CHARTS_DIR):
+            if filename.endswith('.json'):
+                brand_name = filename[:-5]  # Enlever l'extension .json
+                brands.append(brand_name)
+        
+        return {"brands": sorted(brands)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des marques: {str(e)}")
+
+class SizeRecommendationRequest(BaseModel):
+    measurements: Dict[str, float]
+    brand_name: str
+    category: str
+
+@app.post("/recommend-size")
+async def recommend_size(request: SizeRecommendationRequest):
+    """
+    Recommande une taille en fonction des mensurations, de la marque et de la catégorie.
+    
+    Args:
+        request: Objet contenant:
+            - measurements: Dict avec les mensurations (ex: {"estimated_chest_circumference": 95, "estimated_waist_circumference": 80})
+            - brand_name: Nom de la marque (ex: "Zara")
+            - category: Catégorie de vêtement (ex: "tops", "pants")
+    
+    Returns:
+        Dict avec les tailles recommandées pour homme et femme
+    """
+    try:
+        # Charger le fichier JSON de la marque
+        json_file_path = os.path.join(SIZE_CHARTS_DIR, f"{request.brand_name}.json")
+        
+        if not os.path.exists(json_file_path):
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Marque '{request.brand_name}' non trouvée. Utilisez /brands pour voir les marques disponibles."
+            )
+        
+        with open(json_file_path, 'r', encoding='utf-8') as f:
+            size_data = json.load(f)
+        
+        # Extraire les catégories
+        categories_data = size_data.get("categories", {})
+        results = {}
+        
+        # Rechercher la taille pour les hommes
+        male_category_data = categories_data.get("male", {})
+        if request.category in male_category_data:
+            size_chart = male_category_data[request.category]
+            results["male_size"] = get_best_fit_size(request.measurements, size_chart)
+        else:
+            results["male_size"] = None
+            results["male_error"] = f"Catégorie '{request.category}' non disponible pour homme"
+        
+        # Rechercher la taille pour les femmes
+        female_category_data = categories_data.get("female", {})
+        if request.category in female_category_data:
+            size_chart = female_category_data[request.category]
+            results["female_size"] = get_best_fit_size(request.measurements, size_chart)
+        else:
+            results["female_size"] = None
+            results["female_error"] = f"Catégorie '{request.category}' non disponible pour femme"
+        
+        return {
+            "brand": request.brand_name,
+            "category": request.category,
+            "recommendations": results
+        }
+        
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la lecture du fichier JSON: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la recommandation: {str(e)}")
+
+def get_best_fit_size(measurements: Dict[str, float], size_chart: List[Dict[str, Any]]) -> Optional[str]:
+    """
+    Détermine la meilleure taille de vêtement pour une catégorie et un genre donnés.
+    Elle trouve la première taille dont les mensurations correspondent ou sont proches.
+    """
+    for size_info in size_chart:
+        is_fit = True
+        
+        # Parcourir chaque critère de mensuration disponible pour cette taille
+        for criteria, range_values in size_info.items():
+            if criteria in ["label", "unit"]:
+                continue # Ignorer le label de taille
+            
+            # Déterminer la mensuration calculée correspondante
+            measurement_key = None
+            if criteria == "chest":
+                measurement_key = "estimated_chest_circumference"
+            elif criteria == "waist":
+                measurement_key = "estimated_waist_circumference"
+            # Note: Les autres mensurations (neck, hips, inseam) ne sont pas calculées
+            # par la fonction calculate_measurements actuelle, donc elles ne seront pas vérifiées.
+            # Vous devrez étendre 'calculate_measurements' pour les inclure si nécessaire.
+
+            if measurement_key and measurement_key in measurements:
+                user_measure = measurements[measurement_key]
+                min_val, max_val = range_values
+                
+                # Vérifier si la mensuration de l'utilisateur est dans la plage de la taille
+                if not (min_val <= user_measure <= max_val):
+                    is_fit = False
+                    break # Passer à la taille suivante
+
+        if is_fit:
+            # Retourner le label de la première taille qui correspond à tous les critères vérifiés
+            return size_info["label"]
+            
+    return None # Aucune taille trouvée
+
+def measurement_to_size(
+    measurements: Dict[str, float], 
+    brand_name: str, 
+    category: str
+) -> Dict[str, Optional[str]]:
+    """
+    Trouve les tailles de vêtements suggérées (homme/femme) pour une catégorie et une marque.
+
+    Args:
+        measurements: Les mensurations calculées.
+        brand_name: Le nom de la marque (ex: 'Zara').
+        category: Le type de vêtement (ex: 'tops', 'pantalons').
+
+    Returns:
+        Un dictionnaire avec les tailles suggérées pour 'male' et 'female'.
+    """
+    # 1. Charger le fichier JSON de la marque
+    json_file_path = os.path.join(SIZE_CHARTS_DIR, f"{brand_name}.json")
+    if not os.path.exists(json_file_path):
+        return {"error": f"Fichier de tailles pour la marque '{brand_name}' introuvable."}
+
+    try:
+        with open(json_file_path, 'r', encoding='utf-8') as f:
+            size_data = json.load(f)
+    except Exception as e:
+        return {"error": f"Erreur lors du chargement ou de l'analyse du JSON : {e}"}
+
+    # 2. Extraire la table des tailles
+    categories_data = size_data.get("categories", {})
+    results = {}
+
+    # 3. Rechercher la taille pour les hommes
+    male_category_data = categories_data.get("male", {})
+    if category in male_category_data:
+        size_chart = male_category_data[category]
+        results["male_size"] = get_best_fit_size(measurements, size_chart)
+    else:
+        results["male_size"] = f"Catégorie '{category}' non trouvée dans les tailles hommes."
+
+    # 4. Rechercher la taille pour les femmes
+    female_category_data = categories_data.get("female", {})
+    if category in female_category_data:
+        size_chart = female_category_data[category]
+        results["female_size"] = get_best_fit_size(measurements, size_chart)
+    else:
+        results["female_size"] = f"Catégorie '{category}' non trouvée dans les tailles femmes."
+
+    return results
 # Lancement du serveur sur le port 5000
 if __name__ == "__main__":
     import uvicorn

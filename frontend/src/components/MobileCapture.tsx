@@ -21,7 +21,10 @@ const MobileCapture: React.FC = () => {
     }
 
     // Connexion au WebSocket
-    const newSocket = io(API_CONFIG.BACKEND_URL);
+    const newSocket = io(API_CONFIG.BACKEND_URL, {
+      withCredentials: true,
+      transports: ['websocket', 'polling']
+    });
     setSocket(newSocket);
 
     // Rejoindre la session
