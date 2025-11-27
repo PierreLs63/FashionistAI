@@ -15,6 +15,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 # 'yolov8n-pose.pt' sera téléchargé automatiquement à la première exécution
 try:
     model = YOLO('yolov8n-pose.pt')
+    # model = YOLO('yolov11n-pose.pt')
 except Exception as e:
     raise RuntimeError(f"Erreur lors du chargement du modèle YOLO : {e}")
 
