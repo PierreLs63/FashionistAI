@@ -106,15 +106,30 @@ echo "📝 Configuration de l'environnement..."
 
 if [ ! -f .env ]; then
     cp .env.example .env
-    # Update NETWORK_IP in .env
-    if [ "$OS_TYPE" == "Darwin" ]; then
-        sed -i '' "s/# NETWORK_IP=.*/NETWORK_IP=$NETWORK_IP/" .env
-    else
-        sed -i "s/# NETWORK_IP=.*/NETWORK_IP=$NETWORK_IP/" .env
-    fi
     echo -e "${GREEN}✅ Fichier .env créé${NC}"
+fi
+
+# Update NETWORK_IP in .env (always update, even if file exists)
+if grep -q "^NETWORK_IP=" .env; then
+    # Update existing NETWORK_IP line
+    if [ "$OS_TYPE" == "Darwin" ]; then
+        sed -i '' "s/^NETWORK_IP=.*/NETWORK_IP=$NETWORK_IP/" .env
+    else
+        sed -i "s/^NETWORK_IP=.*/NETWORK_IP=$NETWORK_IP/" .env
+    fi
+    echo -e "${GREEN}✅ NETWORK_IP mis à jour: ${NETWORK_IP}${NC}"
+elif grep -q "^# NETWORK_IP=" .env; then
+    # Uncomment and update commented NETWORK_IP line
+    if [ "$OS_TYPE" == "Darwin" ]; then
+        sed -i '' "s/^# NETWORK_IP=.*/NETWORK_IP=$NETWORK_IP/" .env
+    else
+        sed -i "s/^# NETWORK_IP=.*/NETWORK_IP=$NETWORK_IP/" .env
+    fi
+    echo -e "${GREEN}✅ NETWORK_IP configuré: ${NETWORK_IP}${NC}"
 else
-    echo -e "${YELLOW}⚠️  .env existe déjà, conservation${NC}"
+    # Add NETWORK_IP if not present
+    echo "NETWORK_IP=$NETWORK_IP" >> .env
+    echo -e "${GREEN}✅ NETWORK_IP ajouté: ${NETWORK_IP}${NC}"
 fi
 
 echo ""
