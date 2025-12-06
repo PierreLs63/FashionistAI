@@ -19,6 +19,7 @@ FashionistAI utilise la détection de pose par intelligence artificielle pour ca
 - Node.js 18+ 
 - Python 3.10 ou 3.11
 - npm
+- PyTorch < 2.6
 
 ### Installation
 
