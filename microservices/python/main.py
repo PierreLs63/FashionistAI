@@ -6,8 +6,17 @@ import cv2
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from ultralytics import YOLO
+#from ultralytics import YOLO
 from typing import Dict, Any, List, Optional
+
+from hmr2.models import load_hmr2, download_models
+from hmr2.utils import recursive_to
+from hmr2.datasets.utils import expand_to_aspect_ratio
+import hmr2.config
+from hmr2.utils.renderer import Renderer, cam_crop_to_full
+
+
+from measurements import SMPLMeasurer
 
 # --- Configuration ---
 app = FastAPI(title="FashionistAI Python Microservice")
@@ -15,13 +24,23 @@ UPLOAD_DIR = "uploads"
 SIZE_CHARTS_DIR = "size_charts"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+'''
 # Charger le modèle YOLOv8-Pose pré-entraîné
 # 'yolov8n-pose.pt' sera téléchargé automatiquement à la première exécution
 try:
-    model = YOLO('yolov8n-pose.pt')
-    # model = YOLO('yolov11n-pose.pt')
+    # model = YOLO('yolov8n-pose.pt')
+    model = YOLO('yolo11n-pose.pt')
 except Exception as e:
     raise RuntimeError(f"Erreur lors du chargement du modèle YOLO : {e}")
+'''
+
+print("Loading HMR2 model...")
+download_models(mode='inference') 
+model, model_cfg = load_hmr2(tag='venus') 
+device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+model = model.to(device)
+model.eval()
+
 
 # Configuration CORS pour autoriser les requêtes du serveur Express
 app.add_middleware(
@@ -33,71 +52,61 @@ app.add_middleware(
 )
 
 # --- Fonctions de calcul ---
-def get_pixel_distance(p1, p2):
-    """Calcule la distance euclidienne entre deux points."""
-    return np.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
+def process_image_hmr(image_path):
 
-def calculate_measurements(keypoints_data, user_height_cm):
-    """
-    Calcule les mensurations à partir des points clés et de la taille de l'utilisateur.
-    Keypoints: 0:nez, 1:œilG, 2:œilD, 3:oreilleG, 4:oreilleD, 5:épauleG, 6:épauleD,
-    7:coudeG, 8:coudeD, 9:poignetG, 10:poignetD, 11:hancheG, 12:hancheD,
-    13:genouG, 14:genouD, 15:chevilleG, 16:chevilleD
-    """
-    if keypoints_data is None or len(keypoints_data) < 17:
-        raise ValueError("Données de points clés invalides ou incomplètes.")
+    cv_img = cv2.imread(image_path)
+    if cv_img is None:
+        raise ValueError("Image not found")
 
-    k = keypoints_data # Raccourci
-
-    # 1. Établir un ratio pixel/cm
-    # On utilise la distance verticale entre les épaules et les chevilles comme référence
-    # C'est plus stable que la tête qui peut être inclinée
-    shoulder_mid_y = (k[5][1] + k[6][1]) / 2
-    ankle_mid_y = (k[15][1] + k[16][1]) / 2
-    pixel_height = abs(ankle_mid_y - shoulder_mid_y)
-
-    # On estime que cette distance représente environ 80% de la taille totale
-    body_height_cm = user_height_cm * 0.80
-
-    if pixel_height == 0:
-        raise ValueError("Hauteur en pixels nulle, impossible de calculer le ratio.")
+    cv_img = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
     
-    pixel_to_cm_ratio = body_height_cm / pixel_height
+    h, w, _ = cv_img.shape
+    center_x, center_y = w // 2, h // 2
+    scale = max(h, w) / 200.0 
+    
+    from hmr2.utils.geometry import rotation_matrix_to_angle_axis
+    
+    import torchvision.transforms as transforms
+    
+    # Resize & Normalize
+    t = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Resize((256, 256), antialias=True),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+    
+    batch = t(cv_img).unsqueeze(0).to(device)
+    
+    with torch.no_grad():
+        out = model(batch)
+        
+    
+    pred_cam = out['pred_cam']
+    pred_smpl_params = out['pred_smpl_params']
+    
+ 
+    batch_size = batch.shape[0]
+    # body_pose: (B, 23, 3, 3) -> set to identity
+    # global_orient: (B, 1, 3, 3) -> set to identity
+    
 
-    # 2. Calculer les mensurations en pixels puis les convertir en cm
-    # Largeur d'épaules
-    shoulder_width_px = get_pixel_distance(k[5], k[6])
-    shoulder_width_cm = shoulder_width_px * pixel_to_cm_ratio
+    zero_body_pose = torch.eye(3).unsqueeze(0).unsqueeze(0).repeat(batch_size, 23, 1, 1).to(device)
+    zero_global_orient = torch.eye(3).unsqueeze(0).unsqueeze(0).repeat(batch_size, 1, 1, 1).to(device)
+    pred_betas = pred_smpl_params['betas'] 
+    
+    output_standard = model.smpl(
+        body_pose=zero_body_pose,
+        global_orient=zero_global_orient,
+        betas=pred_betas,
+        pose2rot=False
+    )
+    
+    vertices = output_standard.vertices[0].cpu().numpy()
+    faces = model.smpl.faces 
+    
+    return vertices, faces
 
-    # Largeur de la taille (au niveau des hanches détectées)
-    waist_width_px = get_pixel_distance(k[11], k[12])
-    waist_width_cm = waist_width_px * pixel_to_cm_ratio
 
-    # Longueur de bras (épaule -> coude -> poignet) - On prend la moyenne des deux bras
-    left_arm_px = get_pixel_distance(k[5], k[7]) + get_pixel_distance(k[7], k[9])
-    right_arm_px = get_pixel_distance(k[6], k[8]) + get_pixel_distance(k[8], k[10])
-    arm_length_cm = ((left_arm_px + right_arm_px) / 2) * pixel_to_cm_ratio
-
-    # Longueur de jambe (hanche -> genou -> cheville) - On prend la moyenne
-    left_leg_px = get_pixel_distance(k[11], k[13]) + get_pixel_distance(k[13], k[15])
-    right_leg_px = get_pixel_distance(k[12], k[14]) + get_pixel_distance(k[14], k[16])
-    leg_length_cm = ((left_leg_px + right_leg_px) / 2) * pixel_to_cm_ratio
-
-    # Estimation très approximative des tours (circonférences)
-    # Formule: C = π * d. C'est une simplification extrême !
-    # Tour de poitrine estimé à partir de la largeur d'épaules
-    chest_circumference_cm = shoulder_width_cm * np.pi * 0.9 # facteur de correction
-    # Tour de taille
-    waist_circumference_cm = waist_width_cm * np.pi
-
-    return {
-        "shoulder_width": round(shoulder_width_cm, 1),
-        "waist_width": round(waist_width_cm, 1),
-        "arm_length": round(arm_length_cm, 1),
-        "leg_length": round(leg_length_cm, 1),
-        "estimated_chest_circumference": round(chest_circumference_cm, 1),
-        "estimated_waist_circumference": round(waist_circumference_cm, 1),
-    }
 
 # --- Point d'API ---
 @app.post("/analyze-pose")
@@ -116,18 +125,14 @@ async def analyze_pose(image: UploadFile = File(...), height: str = Form(...)):
 
     # Effectuer la détection de pose
     try:
-        results = model(file_path, verbose=False)
-        if not results or not results[0].keypoints:
-             raise HTTPException(status_code=404, detail="Aucune personne détectée sur l'image.")
+        vertices, faces = process_image_hmr(file_path)
         
-        # Extraire les coordonnées des points clés (pour la première personne détectée)
-        keypoints = results[0].keypoints.xy[0].cpu().numpy()
-
-        if len(keypoints) < 17:
-             raise HTTPException(status_code=400, detail="Détection de pose incomplète.")
-
-        # Calculer les mensurations
-        measurements = calculate_measurements(keypoints, user_height)
+        measurements = measurer.measure(vertices, faces, user_height_cm)
+        
+        return {
+            "message": "Analysis successful (HMR2/SMPL)",
+            "measurements": measurements
+        }
 
     except (ValueError, IndexError) as e:
         raise HTTPException(status_code=400, detail=f"Erreur lors du calcul : {e}")
