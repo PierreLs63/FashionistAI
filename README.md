@@ -22,6 +22,10 @@ FashionistAI utilise la détection de pose par intelligence artificielle pour ca
 
 ### Installation
 
+pip install git+https://github.com/shubham-goel/4D-Humans.git
+
+pip install trimesh opencv-python fastapi uvicorn python-multipart
+
 ```bash
 ./setup.sh
 ```
