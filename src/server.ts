@@ -9,7 +9,14 @@ import { v4 as uuidv4 } from 'uuid';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import fs from 'fs';
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
 import config from './config.js';
+import authRoutes from './routes/auth.routes.js';
+import userRoutes from './routes/user.routes.js';
+
+// Charger les variables d'environnement
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -21,10 +28,28 @@ const httpServer = createServer(app);
 // Initialize Socket.IO
 const io = new SocketIOServer(httpServer, config.socketIO as any);
 
+// Connexion MongoDB
+const connectDB = async () => {
+  try {
+    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/fashionistai';
+    await mongoose.connect(mongoUri);
+    console.log('✅ MongoDB connecté avec succès');
+  } catch (error) {
+    console.error('❌ Erreur de connexion MongoDB:', error);
+    process.exit(1);
+  }
+};
+
+connectDB();
+
 // Middleware
 app.use(cors(config.cors));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Routes d'authentification et utilisateur
+app.use('/api/auth', authRoutes);
+app.use('/api/user', userRoutes);
 
 // Configure Multer for file upload
 const storage = multer.diskStorage({

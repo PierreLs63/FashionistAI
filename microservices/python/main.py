@@ -65,30 +65,34 @@ def calculate_measurements(keypoints_data, user_height_cm):
     pixel_to_cm_ratio = body_height_cm / pixel_height
 
     # 2. Calculer les mensurations en pixels puis les convertir en cm
-    # Largeur d'épaules
+    # Facteurs de correction basés sur l'analyse de précision (21 échantillons)
+    # Les facteurs ajustent les mesures pour réduire l'erreur moyenne absolue
+    
+    # Largeur d'épaules (erreur: 33%, MAE: 12.9 cm)
     shoulder_width_px = get_pixel_distance(k[5], k[6])
-    shoulder_width_cm = shoulder_width_px * pixel_to_cm_ratio
+    shoulder_width_cm = shoulder_width_px * pixel_to_cm_ratio * 1.33  # Correction +33%
 
     # Largeur de la taille (au niveau des hanches détectées)
     waist_width_px = get_pixel_distance(k[11], k[12])
     waist_width_cm = waist_width_px * pixel_to_cm_ratio
 
-    # Longueur de bras (épaule -> coude -> poignet) - On prend la moyenne des deux bras
+    # Longueur de bras (erreur: 20%, MAE: 11.9 cm)
     left_arm_px = get_pixel_distance(k[5], k[7]) + get_pixel_distance(k[7], k[9])
     right_arm_px = get_pixel_distance(k[6], k[8]) + get_pixel_distance(k[8], k[10])
-    arm_length_cm = ((left_arm_px + right_arm_px) / 2) * pixel_to_cm_ratio
+    arm_length_cm = ((left_arm_px + right_arm_px) / 2) * pixel_to_cm_ratio * 1.20  # Correction +20%
 
-    # Longueur de jambe (hanche -> genou -> cheville) - On prend la moyenne
+    # Longueur de jambe (erreur: 8.8%, MAE: 8.8 cm) - déjà très précis
     left_leg_px = get_pixel_distance(k[11], k[13]) + get_pixel_distance(k[13], k[15])
     right_leg_px = get_pixel_distance(k[12], k[14]) + get_pixel_distance(k[14], k[16])
-    leg_length_cm = ((left_leg_px + right_leg_px) / 2) * pixel_to_cm_ratio
+    leg_length_cm = ((left_leg_px + right_leg_px) / 2) * pixel_to_cm_ratio * 1.09  # Correction +9%
 
-    # Estimation très approximative des tours (circonférences)
-    # Formule: C = π * d. C'est une simplification extrême !
-    # Tour de poitrine estimé à partir de la largeur d'épaules
-    chest_circumference_cm = shoulder_width_cm * np.pi * 0.9 # facteur de correction
-    # Tour de taille
-    waist_circumference_cm = waist_width_cm * np.pi
+    # Circonférences (tours) - Formule améliorée basée sur l'analyse
+    # Tour de poitrine (erreur: 15.3%, MAE: 15.1 cm)
+    chest_circumference_cm = shoulder_width_cm * np.pi * 0.77  # Facteur optimisé
+    
+    # Tour de taille - utilise la mesure brute avec un facteur global optimisé
+    # L'objectif initial était 25% d'erreur, on vise ~15% avec le bon facteur
+    waist_circumference_cm = waist_width_px * pixel_to_cm_ratio * np.pi * 1.0  # Facteur neutre π
 
     return {
         "shoulder_width": round(shoulder_width_cm, 1),

@@ -1,8 +1,19 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import BodyMeasurementApp from './components/PhotoCapture';
 import QRCodeDisplay from './components/QRCodeDisplay';
 import MobileCapture from './components/MobileCapture';
+import Login from './components/Login';
+import Register from './components/Register';
+import Profile from './components/Profile';
+import apiService from './services/api';
 import './index.css';
+
+// Composant de route protégée
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const isAuthenticated = apiService.isAuthenticated();
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
+};
 
 // Composant principal pour la page d'accueil
 const MainApp: React.FC = () => {
@@ -71,15 +82,26 @@ const MainApp: React.FC = () => {
   );
 };
 
-// Router simple pour gérer les différentes pages
+// Application principale avec router
 const App: React.FC = () => {
-  const isMobileCapturePage = window.location.pathname === '/mobile-capture';
-
-  if (isMobileCapturePage) {
-    return <MobileCapture />;
-  }
-
-  return <MainApp />;
+  return (
+    <Router>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route 
+          path="/profile" 
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          } 
+        />
+        <Route path="/mobile-capture" element={<MobileCapture />} />
+        <Route path="/" element={<MainApp />} />
+      </Routes>
+    </Router>
+  );
 };
 
 export default App;

@@ -14,6 +14,36 @@ echo ""
 # Create logs directory
 mkdir -p logs
 
+# Start MongoDB
+echo "🍃 Vérification de MongoDB..."
+if pgrep -x "mongod" > /dev/null; then
+    echo "   ✅ MongoDB déjà en cours d'exécution"
+else
+    echo "   ⚙️  Démarrage de MongoDB..."
+    if command -v brew &> /dev/null; then
+        brew services start mongodb-community &> /dev/null || true
+        sleep 2
+        if pgrep -x "mongod" > /dev/null; then
+            echo "   ✅ MongoDB démarré"
+        else
+            echo "   ⚠️  Tentative alternative..."
+            mongod --config /usr/local/etc/mongod.conf --fork > "$ROOT_DIR/logs/mongodb.log" 2>&1 || true
+            sleep 2
+        fi
+    else
+        mongod --dbpath /usr/local/var/mongodb --fork --logpath "$ROOT_DIR/logs/mongodb.log" || true
+        sleep 2
+    fi
+    
+    if pgrep -x "mongod" > /dev/null; then
+        echo "   ✅ MongoDB prêt"
+    else
+        echo "   ⚠️  MongoDB n'a pas démarré automatiquement"
+        echo "   💡 Démarrez-le manuellement: brew services start mongodb-community"
+    fi
+fi
+echo ""
+
 # Stop existing services
 echo "🛑 Arrêt des services existants..."
 pkill -f "tsx.*server.ts" 2>/dev/null || true

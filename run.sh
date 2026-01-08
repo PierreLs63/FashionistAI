@@ -25,6 +25,48 @@ echo "╚═══════════════════════�
 echo ""
 
 # ==========================================
+# Start MongoDB
+# ==========================================
+
+echo -e "${BLUE}🍃 Vérification de MongoDB...${NC}"
+
+# Check if MongoDB is already running
+if pgrep -x "mongod" > /dev/null; then
+    echo -e "${GREEN}✅ MongoDB est déjà en cours d'exécution${NC}"
+else
+    echo -e "${YELLOW}⚙️  Démarrage de MongoDB...${NC}"
+    
+    # Try to start MongoDB with brew services
+    if command -v brew &> /dev/null; then
+        brew services start mongodb-community &> /dev/null || true
+        sleep 2
+        
+        # Verify MongoDB started
+        if pgrep -x "mongod" > /dev/null; then
+            echo -e "${GREEN}✅ MongoDB démarré avec succès${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Tentative de démarrage direct de mongod...${NC}"
+            mongod --config /usr/local/etc/mongod.conf --fork > logs/mongodb.log 2>&1 || true
+            sleep 2
+        fi
+    else
+        echo -e "${YELLOW}⚠️  Brew non trouvé, tentative de démarrage direct...${NC}"
+        mongod --dbpath /usr/local/var/mongodb --fork --logpath logs/mongodb.log || true
+        sleep 2
+    fi
+    
+    # Final check
+    if pgrep -x "mongod" > /dev/null; then
+        echo -e "${GREEN}✅ MongoDB prêt${NC}"
+    else
+        echo -e "${RED}⚠️  MongoDB n'a pas pu démarrer automatiquement${NC}"
+        echo -e "${YELLOW}💡 Démarrez-le manuellement: brew services start mongodb-community${NC}"
+    fi
+fi
+
+echo ""
+
+# ==========================================
 # Stop existing services
 # ==========================================
 

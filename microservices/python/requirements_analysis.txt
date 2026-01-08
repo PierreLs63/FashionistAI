@@ -1,0 +1,7 @@
+# Dépendances supplémentaires pour l'analyse de précision
+pandas>=2.0.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+scikit-learn>=1.3.0
+datasets>=2.14.0
+huggingface-hub>=0.17.0
